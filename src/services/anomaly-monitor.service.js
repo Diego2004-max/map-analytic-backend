@@ -1,55 +1,52 @@
+import fetch from 'node-fetch';
+
 export class AnomalyMonitorService {
-  constructor() {
-    this.apiUrl = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson";
-  }
-
-  async scanTerritorialAnomalies() {
+  async scanAnomalies() {
     try {
-      const response = await fetch(this.apiUrl);
+      // Consulta al servicio oficial y público de sismicidad global/regional (USGS GeoJSON)
+      const response = await fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson');
       const data = await response.json();
-      const national = [];
-      const global = [];
 
-      for (const feature of data.features || []) {
-        const [lng, lat] = feature.geometry.coordinates;
-        const props = feature.properties;
-        const mag = props.mag || 0;
+      if (!data || !data.features) {
+        return { success: true, count: 0, anomalies: [] };
+      }
 
-        // Bounding Box aproximado de Colombia
-        const isColombia = (lat >= -4.5 && lat <= 13.5) && (lng >= -82.0 && lng <= -66.8);
+      // Procesar los eventos reales obtenidos de los sensores
+      const realAnomalies = data.features.map(quake => {
+        const [longitude, latitude, depth] = quake.geometry.coordinates;
+        const place = quake.properties.place || 'Ubicación desconocida';
+        const mag = quake.properties.mag;
+        const time = new Date(quake.properties.time).toISOString();
 
-        const event = {
-          title: props.place,
-          description: `Magnitud: ${mag} Richter. Profundidad: ${feature.geometry.coordinates[2]} km.`,
-          latitude: lat,
-          longitude: lng,
-          severity: mag >= 5.0 ? 'HIGH' : 'MEDIUM',
-          category: isColombia ? 'Sismo Nacional (Colombia)' : 'Sismo Internacional',
-          source: 'USGS_LIVE_API',
-          timestamp: new Date(props.time)
+        // Delimitación estricta para identificar si ocurre en Colombia
+        const isColombia = latitude >= -4.23 && latitude <= 12.46 && longitude >= -79.0 && longitude <= -66.85;
+
+        return {
+          title: `Sismo Real M${mag.toFixed(1)} - ${place}`,
+          description: `Magnitud: ${mag.toFixed(1)} Richter. Profundidad: ${depth.toFixed(1)} km. Registrado el ${new Date(quake.properties.time).toLocaleString()}.`,
+          latitude,
+          longitude,
+          category: mag >= 4.5 ? 'Actividad Sísmica Moderada' : 'Micro-sismicidad',
+          severity: mag >= 5.0 ? 'Alta' : mag >= 4.0 ? 'Media' : 'Baja',
+          timestamp: time,
+          isColombia
         };
+      });
 
-        if (isColombia) national.push(event);
-        else global.push(event);
-      }
+      // Filtrar para mostrar eventos científicos reales y significativos
+      const filteredAnomalies = realAnomalies.filter(item => {
+        return item.isColombia || item.description.includes('km');
+      });
 
-      if (national.length === 0) {
-        national.push({
-          title: "Estado Nacional: Sin sismos recientes en Colombia",
-          description: "La red sismológica no registra sismos de consideración en el territorio colombiano en este momento.",
-          latitude: 4.5708,
-          longitude: -74.2973,
-          severity: "LOW",
-          category: "Vigilancia Colombia",
-          source: "RADAR_SECURE",
-          timestamp: new Date()
-        });
-      }
+      return {
+        success: true,
+        count: filteredAnomalies.length,
+        anomalies: filteredAnomalies.slice(0, 10)
+      };
 
-      return [...national, ...global.slice(0, 2)];
     } catch (error) {
-      console.error("[Monitor] Error conectando con API externa:", error);
-      return [];
+      console.error("[AnomalyMonitorService] Error al obtener datos reales:", error);
+      return { success: false, count: 0, anomalies: [], error: error.message };
     }
   }
 }
