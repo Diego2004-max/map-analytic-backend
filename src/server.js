@@ -1,7 +1,3 @@
-/**
- * @file server.js
- * @description Archivo principal del servidor Backend con Express y PostgreSQL.
- */
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -13,9 +9,16 @@ import { AnomalyMonitorService } from './services/anomaly-monitor.service.js';
 dotenv.config();
 
 const app = express();
+// Producción: Render asigna automáticamente process.env.PORT, si no, usa el 5000
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+// Configuración avanzada de CORS para producción
+app.use(cors({
+  origin: '*', // Puedes cambiarlo luego por la URL exacta de tu frontend en Vercel
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type']
+}));
+
 app.use(express.json());
 
 // Instanciar servicios
