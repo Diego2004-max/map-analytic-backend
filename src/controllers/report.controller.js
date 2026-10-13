@@ -23,9 +23,14 @@ export class ReportController {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
       `);
-      console.log("[Database] Tabla 'reports' verificada con éxito.");
+
+      // Asegurar columnas por si la tabla ya existía previamente en PostgreSQL
+      await dbPool.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS title VARCHAR(255) DEFAULT 'Anomalía Territorial';`);
+      await dbPool.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS author VARCHAR(255) DEFAULT 'Anónimo';`);
+
+      console.log("[Database] Tabla 'reports' verificada y actualizada con éxito.");
     } catch (err) {
-      console.error("[Database] Error creando la tabla reports:", err);
+      console.error("[Database] Error creando o actualizando la tabla reports:", err);
     }
   }
 
