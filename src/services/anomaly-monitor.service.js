@@ -3,7 +3,7 @@ import fetch from 'node-fetch';
 export class AnomalyMonitorService {
   async scanAnomalies() {
     try {
-      // Consulta al servicio oficial y público de sismicidad global/regional (USGS GeoJSON)
+      // Consulta al servicio oficial y público de sismicidad global/regional (USGS GeoJSON) usando fetch nativo de Node.js
       const response = await fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson');
       const data = await response.json();
 
