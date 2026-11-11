@@ -26,5 +26,15 @@ export async function initializeDatabase() {
     );
     CREATE INDEX IF NOT EXISTS idx_anomaly_reports_created_at ON anomaly_reports (created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_anomaly_reports_coordinates ON anomaly_reports (latitude, longitude);
+    CREATE TABLE IF NOT EXISTS app_users (
+      id SERIAL PRIMARY KEY,
+      email VARCHAR(320) NOT NULL,
+      display_name VARCHAR(120) NOT NULL,
+      password_hash TEXT,
+      google_subject VARCHAR(255) UNIQUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_app_users_email_lower ON app_users (LOWER(email));
   `);
 }
