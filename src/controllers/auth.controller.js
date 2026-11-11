@@ -18,7 +18,14 @@ export class AuthController {
     return { token, user: { id: user.id, name: user.display_name, email: user.email } };
   }
 
+  isSessionConfigured(res) {
+    if (this.jwtSecret) return true;
+    res.status(503).json({ error: 'Authentication is not configured on the server.' });
+    return false;
+  }
+
   register = async (req, res) => {
+    if (!this.isSessionConfigured(res)) return;
     const { name, email, password } = req.body ?? {};
     if (typeof name !== 'string' || name.trim().length < 2 || !emailPattern.test(email || '') || typeof password !== 'string' || password.length < 10) return res.status(400).json({ error: 'Name, valid email, and a password of at least 10 characters are required.' });
     try {
@@ -32,6 +39,7 @@ export class AuthController {
   };
 
   login = async (req, res) => {
+    if (!this.isSessionConfigured(res)) return;
     const { email, password } = req.body ?? {};
     if (!emailPattern.test(email || '') || typeof password !== 'string') return res.status(400).json({ error: 'Email and password are required.' });
     const { rows } = await dbPool.query('SELECT id, email, display_name, password_hash FROM app_users WHERE LOWER(email) = LOWER($1)', [email.trim()]);
@@ -40,6 +48,7 @@ export class AuthController {
   };
 
   verifyGoogleCredential = async (req, res) => {
+    if (!this.isSessionConfigured(res)) return;
     if (!this.googleClient || !this.googleClientId) return res.status(503).json({ error: 'Google sign-in is not configured on the server.' });
     try {
       const ticket = await this.googleClient.verifyIdToken({ idToken: req.body?.credential, audience: this.googleClientId });
