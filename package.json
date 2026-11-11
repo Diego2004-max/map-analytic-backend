@@ -1,19 +1,21 @@
 {
   "name": "map-analytic-backend",
   "version": "1.0.0",
-  "description": "Backend de inteligencia espacial y monitoreo de anomalías",
+  "description": "Backend for Map Analytic AI spatial reporting system",
   "main": "src/server.js",
   "type": "module",
   "scripts": {
+    "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "dev": "node --watch src/server.js"
+    "test": "node --test"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.21.0",
+    "@google/genai": "^2.27.0",
+    "@google/generative-ai": "^0.24.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "node-fetch": "^3.3.2",
+    "google-auth-library": "^10.5.0",
     "pg": "^8.11.3"
   }
 }

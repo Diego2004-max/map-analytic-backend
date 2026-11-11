@@ -1,3 +1,7 @@
+/**
+ * @file nlp-classification.service.js
+ * @description Service to handle AI classification via Gemini API.
+ */
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export class NLPClassificationService {
@@ -10,36 +14,49 @@ export class NLPClassificationService {
     try {
       const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
       
-      const prompt = `Analiza la descripción de esta anomalía territorial en Colombia y devuélvela estrictamente en formato JSON plano (sin bloques markdown) con las llaves exactas:
-      - category (String: ej. Actividad Sísmica, Infraestructura Vial, Amenaza Geológica, Fenómeno Climático)
-      - severity (String estricta: LOW, MEDIUM, HIGH)
-      - extractedKeywords (Array de 3 a 5 strings clave)
-      - isActionable (Boolean: true/false)
+      const prompt = `Analiza la siguiente descripción de una anomalía o fenómeno natural territorial (sismos, volcanes, clima, geología) y devuélvela estrictamente en formato JSON plano (sin bloques de código markdown) con las siguientes llaves exactas: 
+      - category (String: ej. Sísmico, Volcánico, Climático, Geológico, Infraestructura)
+      - severity (String estricta: LOW, MEDIUM o HIGH)
+      - extractedKeywords (Array de strings con 3 a 5 palabras clave relevantes)
+      - isActionable (Boolean: true o false)
 
       Descripción: "${description}"`;
 
       const result = await model.generateContent(prompt);
-      const text = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
-      return JSON.parse(text);
+      const responseText = result.response.text().trim();
+      
+      const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+      return JSON.parse(cleanJson);
     } catch (error) {
-      console.warn("[NLP Service] Usando respaldo inteligente local por alta demanda:", error.message);
+      console.warn("[NLP Service] Aplicando clasificación inteligente para fenómenos naturales:", error.message);
+      
       const text = description.toLowerCase();
-      let category = "Infraestructura Vial";
+      let category = "Fenómeno Natural";
       let severity = "MEDIUM";
+      let isActionable = true;
 
-      if (text.includes("sismo") || text.includes("temblor") || text.includes("magnitud")) {
+      // Detección especializada para sismos, volcanes y naturaleza
+      if (text.includes("sismo") || text.includes("temblor") || text.includes("terremoto") || text.includes("magnitúd")) {
         category = "Actividad Sísmica";
-        severity = text.includes("fuerte") || text.includes("destrucción") ? "HIGH" : "MEDIUM";
-      } else if (text.includes("deslizamiento") || text.includes("monte") || text.includes("avalancha")) {
+        severity = text.includes("fuerte") || text.includes("magnitud") || text.includes("destrucción") ? "HIGH" : "MEDIUM";
+      } else if (text.includes("volcán") || text.includes("ceniza") || text.includes("erupción") || text.includes("cráter")) {
+        category = "Actividad Volcánica";
+        severity = "HIGH";
+      } else if (text.includes("deslizamiento") || text.includes("derrumbe") || text.includes("avalancha") || text.includes("grieta")) {
         category = "Amenaza Geológica";
         severity = "HIGH";
+      } else if (text.includes("inundación") || text.includes("crecida") || text.includes("tormenta") || text.includes("lluvia")) {
+        category = "Fenómeno Climático";
+        severity = "MEDIUM";
       }
+
+      const keywords = description.split(" ").filter(w => w.length > 3).slice(0, 4);
 
       return {
         category,
         severity,
-        extractedKeywords: description.split(" ").filter(w => w.length > 4).slice(0, 4),
-        isActionable: true
+        extractedKeywords: keywords.length > 0 ? keywords : ["fenómeno", "natural"],
+        isActionable
       };
     }
   }
