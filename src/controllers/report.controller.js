@@ -17,6 +17,7 @@ export class ReportController {
         catch (error) {
           const status = providerStatus(error);
           console.error('[ReportController] Audio transcription failed:', { status, message: error.message });
+          if (status === 402) return res.status(503).json({ code: 'AUDIO_CREDITS_EXHAUSTED', error: 'La transcripción está suspendida porque el servicio agotó sus créditos. El administrador debe revisar la facturación de Gemini. Tu reporte no se ha guardado.' });
           if (!this.audioService.client || [400, 401, 403, 404].includes(status)) return res.status(503).json({ error: 'El servicio de audio necesita revisar su clave o modelo de Gemini en Render.' });
           if (status === 429) return res.status(503).json({ error: 'Gemini alcanzó su cuota de audio. Inténtalo más tarde.' });
           return res.status(503).json({ error: 'Gemini no respondió a la transcripción. Inténtalo de nuevo en unos minutos.' });

@@ -4,6 +4,7 @@ import { AudioTranscriptionService, providerStatus } from './audio-transcription
 
 test('recognizes structured and serialized provider status', () => {
   assert.equal(providerStatus({ status: 503 }), 503);
+  assert.equal(providerStatus({ status: 402 }), 402);
   assert.equal(providerStatus({ message: '{"error":{"code":404}}' }), 404);
 });
 
