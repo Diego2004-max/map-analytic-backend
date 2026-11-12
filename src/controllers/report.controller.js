@@ -26,6 +26,7 @@ export class ReportController {
       }
       const reportDescription = [description?.trim(), transcript && `Transcripción del audio: ${transcript}`].filter(Boolean).join('\n\n');
       if (reportDescription.length < 10) return res.status(422).json({ error: 'The report content is too short.' });
+      if (reportDescription.length > 5000) return res.status(413).json({ error: 'Report content must be 5000 characters or fewer.' });
       const classification = await this.nlpService.classifyReport(reportDescription);
       const client = await dbPool.connect();
       try {
