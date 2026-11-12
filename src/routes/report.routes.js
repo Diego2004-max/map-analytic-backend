@@ -14,6 +14,7 @@ export function createReportRouter(controller) {
   router.post('/reports', requireSession, upload.array('attachments', 4), controller.createReport);
   router.delete('/reports/:reportId', requireSession, controller.deleteReport);
   router.get('/reports', controller.getReports);
+  router.get('/reports/stats', controller.getStats);
   router.get('/reports/:reportId/attachments/:attachmentId', controller.getAttachment);
   return router;
 }

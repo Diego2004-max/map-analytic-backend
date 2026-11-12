@@ -58,6 +58,17 @@ export class ReportController {
     }
     catch (error) { console.error('[ReportController] Error fetching reports:', error); return res.status(500).json({ error: 'Failed to retrieve reports.' }); }
   };
+  getStats = async (_req, res) => {
+    try {
+      const { rows } = await dbPool.query(`SELECT COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE severity = 'HIGH')::int AS high,
+        COUNT(*) FILTER (WHERE severity = 'MEDIUM')::int AS medium,
+        COUNT(*) FILTER (WHERE severity = 'LOW')::int AS low,
+        COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '1 hour')::int AS last_hour
+        FROM anomaly_reports`);
+      return res.json({ data: rows[0] });
+    } catch { return res.status(500).json({ error: 'No se pudieron calcular las estadísticas.' }); }
+  };
   deleteReport = async (req, res) => {
     if (!/^[1-9]\d*$/.test(req.params.reportId)) return res.status(400).json({ error: 'Identificador inválido.' });
     try {

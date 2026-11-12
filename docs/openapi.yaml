@@ -46,6 +46,11 @@ paths:
         '201': { description: Report created }
         '400': { description: Invalid input }
         '413': { description: Payload too large }
+  /api/v1/reports/stats:
+    get:
+      summary: Get report severity statistics
+      responses:
+        '200': { description: Current report counters }
 components:
   schemas:
     LoginRequest:
