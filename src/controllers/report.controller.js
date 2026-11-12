@@ -1,5 +1,6 @@
 import { dbPool } from '../config/database.js';
 import { providerStatus } from '../services/audio-transcription.service.js';
+import { parsePagination } from '../utils/pagination.js';
 
 export class ReportController {
   constructor(nlpClassificationService, audioTranscriptionService) { this.nlpService = nlpClassificationService; this.audioService = audioTranscriptionService; }
@@ -47,10 +48,7 @@ export class ReportController {
   };
   getReports = async (req, res) => {
     try {
-      const requestedLimit = Number.parseInt(req.query.limit, 10);
-      const requestedOffset = Number.parseInt(req.query.offset, 10);
-      const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 100;
-      const offset = Number.isFinite(requestedOffset) ? Math.max(requestedOffset, 0) : 0;
+      const { limit, offset } = parsePagination(req.query);
       const { rows } = await dbPool.query(`SELECT r.owner_id, r.id, r.description, r.category, r.severity, r.status, r.keywords, r.is_actionable, r.latitude, r.longitude, r.created_at,
         COALESCE((SELECT json_agg(json_build_object('id', a.id, 'original_name', a.original_name, 'mime_type', a.mime_type, 'byte_size', a.byte_size, 'url', '/api/v1/reports/' || r.id || '/attachments/' || a.id) ORDER BY a.id) FROM report_attachments a WHERE a.report_id = r.id), '[]'::json) AS attachments
         FROM anomaly_reports r ORDER BY r.created_at DESC, r.id DESC LIMIT $1 OFFSET $2;`, [limit, offset]);
