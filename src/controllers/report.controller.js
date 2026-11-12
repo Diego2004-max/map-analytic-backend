@@ -9,12 +9,35 @@ export class ReportController {
       if (typeof description !== 'string' || description.trim().length < 10) return res.status(400).json({ error: 'Description must contain at least 10 characters.' });
       if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) return res.status(400).json({ error: 'Coordinates must be valid latitude and longitude values.' });
       const classification = await this.nlpService.classifyReport(description.trim());
-      const { rows } = await dbPool.query(`INSERT INTO anomaly_reports (description, latitude, longitude, citizen_id, category, severity, keywords, is_actionable, status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'PENDING') RETURNING id, description, category, severity, status, keywords, is_actionable, latitude, longitude, created_at;`, [description.trim(), lat, lng, citizenId || 'ANONYMOUS', classification.category, classification.severity, classification.extractedKeywords, classification.isActionable]);
-      return res.status(201).json({ message: 'Anomaly reported and stored successfully.', data: rows[0] });
+      const client = await dbPool.connect();
+      try {
+        await client.query('BEGIN');
+        const { rows } = await client.query(`INSERT INTO anomaly_reports (description, latitude, longitude, citizen_id, category, severity, keywords, is_actionable, status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'PENDING') RETURNING id, description, category, severity, status, keywords, is_actionable, latitude, longitude, created_at;`, [description.trim(), lat, lng, citizenId || 'ANONYMOUS', classification.category, classification.severity, classification.extractedKeywords, classification.isActionable]);
+        const report = rows[0];
+        const attachments = [];
+        for (const file of req.files || []) {
+          const saved = await client.query(`INSERT INTO report_attachments (report_id, original_name, mime_type, byte_size, content) VALUES ($1,$2,$3,$4,$5) RETURNING id, original_name, mime_type, byte_size;`, [report.id, file.originalname, file.mimetype, file.size, file.buffer]);
+          attachments.push({ ...saved.rows[0], url: `/api/v1/reports/${report.id}/attachments/${saved.rows[0].id}` });
+        }
+        await client.query('COMMIT');
+        return res.status(201).json({ message: 'Anomaly reported and stored successfully.', data: { ...report, attachments } });
+      } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
     } catch (error) { console.error('[ReportController] Error creating report:', error); return res.status(500).json({ error: 'Internal server error during report processing.' }); }
   };
   getReports = async (_req, res) => {
-    try { const { rows } = await dbPool.query('SELECT id, description, category, severity, status, keywords, is_actionable, latitude, longitude, created_at FROM anomaly_reports ORDER BY created_at DESC LIMIT 100;'); return res.status(200).json({ data: rows }); }
+    try {
+      const { rows } = await dbPool.query(`SELECT r.id, r.description, r.category, r.severity, r.status, r.keywords, r.is_actionable, r.latitude, r.longitude, r.created_at,
+        COALESCE((SELECT json_agg(json_build_object('id', a.id, 'original_name', a.original_name, 'mime_type', a.mime_type, 'byte_size', a.byte_size, 'url', '/api/v1/reports/' || r.id || '/attachments/' || a.id) ORDER BY a.id) FROM report_attachments a WHERE a.report_id = r.id), '[]'::json) AS attachments
+        FROM anomaly_reports r ORDER BY r.created_at DESC LIMIT 100;`);
+      return res.status(200).json({ data: rows });
+    }
     catch (error) { console.error('[ReportController] Error fetching reports:', error); return res.status(500).json({ error: 'Failed to retrieve reports.' }); }
+  };
+  getAttachment = async (req, res) => {
+    try {
+      const { rows } = await dbPool.query('SELECT original_name, mime_type, content FROM report_attachments WHERE id = $1 AND report_id = $2', [req.params.attachmentId, req.params.reportId]);
+      if (!rows[0]) return res.status(404).json({ error: 'Attachment not found.' });
+      res.type(rows[0].mime_type).set('Content-Disposition', `inline; filename="${rows[0].original_name.replace(/["\\]/g, '')}"`).send(rows[0].content);
+    } catch (error) { console.error('[ReportController] Error retrieving attachment:', error); return res.status(500).json({ error: 'Failed to retrieve attachment.' }); }
   };
 }

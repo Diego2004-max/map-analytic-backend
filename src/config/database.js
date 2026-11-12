@@ -26,6 +26,16 @@ export async function initializeDatabase() {
     );
     CREATE INDEX IF NOT EXISTS idx_anomaly_reports_created_at ON anomaly_reports (created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_anomaly_reports_coordinates ON anomaly_reports (latitude, longitude);
+    CREATE TABLE IF NOT EXISTS report_attachments (
+      id SERIAL PRIMARY KEY,
+      report_id INTEGER NOT NULL REFERENCES anomaly_reports(id) ON DELETE CASCADE,
+      original_name VARCHAR(255) NOT NULL,
+      mime_type VARCHAR(100) NOT NULL,
+      byte_size INTEGER NOT NULL CHECK (byte_size > 0),
+      content BYTEA NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_report_attachments_report_id ON report_attachments (report_id);
     CREATE TABLE IF NOT EXISTS app_users (
       id SERIAL PRIMARY KEY,
       email VARCHAR(320) NOT NULL,
