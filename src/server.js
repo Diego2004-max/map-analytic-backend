@@ -2,6 +2,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
 import crypto from 'node:crypto';
+import { ReportRetentionService } from './services/report-retention.service.js';
 import { createCorsOptions } from './config/cors.js';
 import { dbPool, initializeDatabase } from './config/database.js';
 import { AuthController } from './controllers/auth.controller.js';
@@ -14,6 +15,8 @@ dotenv.config();
 const app = express(); const port = Number(process.env.PORT || 5000);
 let databaseReady = false;
 let databaseInitializing = false;
+const retention = new ReportRetentionService(dbPool);
+const cleanupReports = () => retention.run().catch(() => console.error('[Retention] Database cleanup failed'));
 const authAttempts = new Map();
 const authGuard = (req, res, next) => {
   const key = req.ip || 'unknown'; const now = Date.now(); const entry = authAttempts.get(key) || { count: 0, resetAt: now + 60_000 };
@@ -47,7 +50,7 @@ app.use((error, _req, res, _next) => {
 async function initializeWhenAvailable() {
   if (databaseReady || databaseInitializing) return;
   databaseInitializing = true;
-  try { await initializeDatabase(); databaseReady = true; console.log('[Database] Ready'); }
+  try { await initializeDatabase(); databaseReady = true; console.log('[Database] Ready'); await cleanupReports(); }
   catch (error) { console.error('[Database] Initialization failed:', error.message); }
   finally { databaseInitializing = false; }
 }
@@ -55,5 +58,6 @@ app.listen(port, '0.0.0.0', () => {
   console.log(`[MapAnalytic Server] Running on port ${port}`);
   initializeWhenAvailable();
   setInterval(initializeWhenAvailable, 30_000);
+  setInterval(() => { if (databaseReady) cleanupReports(); }, 60_000).unref();
 });
 export default app;
