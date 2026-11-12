@@ -33,6 +33,8 @@ export class ReportController {
         await client.query('BEGIN');
         const { rows } = await client.query(`INSERT INTO anomaly_reports (description, latitude, longitude, citizen_id, category, severity, keywords, is_actionable, status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'PENDING') RETURNING id, description, category, severity, status, keywords, is_actionable, latitude, longitude, created_at;`, [reportDescription, lat, lng, citizenId || 'ANONYMOUS', classification.category, classification.severity, classification.extractedKeywords, classification.isActionable]);
         const report = rows[0];
+        await client.query('UPDATE anomaly_reports SET owner_id = $1 WHERE id = $2', [req.userId, report.id]);
+        report.owner_id = req.userId;
         const attachments = [];
         for (const file of req.files || []) {
           const saved = await client.query(`INSERT INTO report_attachments (report_id, original_name, mime_type, byte_size, content) VALUES ($1,$2,$3,$4,$5) RETURNING id, original_name, mime_type, byte_size;`, [report.id, file.originalname, file.mimetype, file.size, file.buffer]);
@@ -49,12 +51,20 @@ export class ReportController {
       const requestedOffset = Number.parseInt(req.query.offset, 10);
       const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 100;
       const offset = Number.isFinite(requestedOffset) ? Math.max(requestedOffset, 0) : 0;
-      const { rows } = await dbPool.query(`SELECT r.id, r.description, r.category, r.severity, r.status, r.keywords, r.is_actionable, r.latitude, r.longitude, r.created_at,
+      const { rows } = await dbPool.query(`SELECT r.owner_id, r.id, r.description, r.category, r.severity, r.status, r.keywords, r.is_actionable, r.latitude, r.longitude, r.created_at,
         COALESCE((SELECT json_agg(json_build_object('id', a.id, 'original_name', a.original_name, 'mime_type', a.mime_type, 'byte_size', a.byte_size, 'url', '/api/v1/reports/' || r.id || '/attachments/' || a.id) ORDER BY a.id) FROM report_attachments a WHERE a.report_id = r.id), '[]'::json) AS attachments
-        FROM anomaly_reports r ORDER BY r.created_at DESC LIMIT $1 OFFSET $2;`, [limit, offset]);
+        FROM anomaly_reports r ORDER BY r.created_at DESC, r.id DESC LIMIT $1 OFFSET $2;`, [limit, offset]);
       return res.status(200).json({ data: rows, pagination: { limit, offset, returned: rows.length, hasMore: rows.length === limit } });
     }
     catch (error) { console.error('[ReportController] Error fetching reports:', error); return res.status(500).json({ error: 'Failed to retrieve reports.' }); }
+  };
+  deleteReport = async (req, res) => {
+    if (!/^[1-9]\d*$/.test(req.params.reportId)) return res.status(400).json({ error: 'Identificador inválido.' });
+    try {
+      const result = await dbPool.query('DELETE FROM anomaly_reports WHERE id = $1 AND owner_id = $2 RETURNING id', [req.params.reportId, req.userId]);
+      if (!result.rowCount) return res.status(404).json({ error: 'Reporte no disponible o no te pertenece.' });
+      return res.status(204).end();
+    } catch { return res.status(500).json({ error: 'No se pudo eliminar el reporte.' }); }
   };
   getAttachment = async (req, res) => {
     try {

@@ -49,5 +49,6 @@ export async function initializeDatabase() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     CREATE UNIQUE INDEX IF NOT EXISTS idx_app_users_email_lower ON app_users (LOWER(email));
+    ALTER TABLE anomaly_reports ADD COLUMN IF NOT EXISTS owner_id INTEGER REFERENCES app_users(id);
   `);
 }
