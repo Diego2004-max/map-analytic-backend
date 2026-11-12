@@ -42,12 +42,16 @@ export class ReportController {
       } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
     } catch (error) { console.error('[ReportController] Error creating report:', error); return res.status(500).json({ error: 'Internal server error during report processing.' }); }
   };
-  getReports = async (_req, res) => {
+  getReports = async (req, res) => {
     try {
+      const requestedLimit = Number.parseInt(req.query.limit, 10);
+      const requestedOffset = Number.parseInt(req.query.offset, 10);
+      const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 100;
+      const offset = Number.isFinite(requestedOffset) ? Math.max(requestedOffset, 0) : 0;
       const { rows } = await dbPool.query(`SELECT r.id, r.description, r.category, r.severity, r.status, r.keywords, r.is_actionable, r.latitude, r.longitude, r.created_at,
         COALESCE((SELECT json_agg(json_build_object('id', a.id, 'original_name', a.original_name, 'mime_type', a.mime_type, 'byte_size', a.byte_size, 'url', '/api/v1/reports/' || r.id || '/attachments/' || a.id) ORDER BY a.id) FROM report_attachments a WHERE a.report_id = r.id), '[]'::json) AS attachments
-        FROM anomaly_reports r ORDER BY r.created_at DESC LIMIT 100;`);
-      return res.status(200).json({ data: rows });
+        FROM anomaly_reports r ORDER BY r.created_at DESC LIMIT $1 OFFSET $2;`, [limit, offset]);
+      return res.status(200).json({ data: rows, pagination: { limit, offset, returned: rows.length, hasMore: rows.length === limit } });
     }
     catch (error) { console.error('[ReportController] Error fetching reports:', error); return res.status(500).json({ error: 'Failed to retrieve reports.' }); }
   };
