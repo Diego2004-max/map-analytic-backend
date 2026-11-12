@@ -1,5 +1,12 @@
 import { GoogleGenAI } from '@google/genai';
 
+function providerStatus(error) {
+  const direct = Number(error.status || error.code);
+  if (Number.isInteger(direct)) return direct;
+  const match = String(error.message || '').match(/"code"\s*:\s*(\d{3})/);
+  return match ? Number(match[1]) : null;
+}
+
 export class AudioTranscriptionService {
   constructor(apiKey = process.env.GEMINI_API_KEY) {
     this.client = apiKey ? new GoogleGenAI({ apiKey }) : null;
@@ -16,9 +23,11 @@ export class AudioTranscriptionService {
       const response = await this.client.models.generateContent({ model: preferredModel, contents });
       return (response.text || '').trim();
     } catch (error) {
-      if (preferredModel === 'gemini-3.5-flash-lite' || ![404, 429, 503].includes(error.status)) throw error;
+      if (preferredModel === 'gemini-3.5-flash-lite' || ![404, 429, 503].includes(providerStatus(error))) throw error;
       const response = await this.client.models.generateContent({ model: 'gemini-3.5-flash-lite', contents });
       return (response.text || '').trim();
     }
   }
 }
+
+export { providerStatus };

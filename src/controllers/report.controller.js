@@ -1,4 +1,5 @@
 import { dbPool } from '../config/database.js';
+import { providerStatus } from '../services/audio-transcription.service.js';
 
 export class ReportController {
   constructor(nlpClassificationService, audioTranscriptionService) { this.nlpService = nlpClassificationService; this.audioService = audioTranscriptionService; }
@@ -13,7 +14,13 @@ export class ReportController {
       let transcript = '';
       if (audioFiles.length) {
         try { transcript = await this.audioService.transcribe(audioFiles[0]); }
-        catch (error) { console.error('[ReportController] Audio transcription failed:', error); return res.status(503).json({ error: 'No se pudo transcribir el audio. Inténtalo de nuevo en unos minutos.' }); }
+        catch (error) {
+          const status = providerStatus(error);
+          console.error('[ReportController] Audio transcription failed:', { status, message: error.message });
+          if (!this.audioService.client || [400, 401, 403, 404].includes(status)) return res.status(503).json({ error: 'El servicio de audio necesita revisar su clave o modelo de Gemini en Render.' });
+          if (status === 429) return res.status(503).json({ error: 'Gemini alcanzó su cuota de audio. Inténtalo más tarde.' });
+          return res.status(503).json({ error: 'Gemini no respondió a la transcripción. Inténtalo de nuevo en unos minutos.' });
+        }
         if (!transcript) return res.status(422).json({ error: 'No se encontró voz comprensible en el audio.' });
       }
       const reportDescription = [description?.trim(), transcript && `Transcripción del audio: ${transcript}`].filter(Boolean).join('\n\n');
