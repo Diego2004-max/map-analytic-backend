@@ -1,0 +1,63 @@
+openapi: 3.0.3
+info:
+  title: Map Analytic AI API
+  version: 1.0.0
+  description: Territorial anomaly reporting and seismic monitoring API.
+servers:
+  - url: https://map-analytic-backend.onrender.com
+paths:
+  /api/health:
+    get:
+      summary: Check API and database readiness
+      responses:
+        '200':
+          description: Service ready
+        '503':
+          description: Database unavailable
+  /api/v1/auth/login:
+    post:
+      summary: Authenticate with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200': { description: Authenticated }
+        '401': { description: Invalid credentials }
+  /api/v1/reports:
+    get:
+      summary: List recent reports
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        '200': { description: Paginated reports }
+    post:
+      summary: Create a report with optional evidence
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReportRequest'
+      responses:
+        '201': { description: Report created }
+        '400': { description: Invalid input }
+        '413': { description: Payload too large }
+components:
+  schemas:
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 10 }
+    ReportRequest:
+      type: object
+      required: [latitude, longitude]
+      properties:
+        description: { type: string, minLength: 10, maxLength: 5000 }
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
