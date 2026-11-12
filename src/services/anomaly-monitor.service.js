@@ -14,8 +14,8 @@ export class AnomalyMonitorService {
 
       for (const feature of payload.features || []) {
         const coordinates = feature.geometry?.coordinates;
-        const magnitude = Number(feature.properties?.mag);
-        if (!Array.isArray(coordinates) || coordinates.length < 3 || !Number.isFinite(magnitude)) continue;
+        const magnitude = feature.properties?.mag;
+        if (!Array.isArray(coordinates) || coordinates.length < 3 || !Number.isFinite(magnitude) || !coordinates.every(Number.isFinite) || !Number.isFinite(feature.properties?.time)) continue;
 
         const [longitude, latitude, depth] = coordinates;
         const inColombia = latitude >= -4.23 && latitude <= 12.46 && longitude >= -79.0 && longitude <= -66.85;
@@ -38,7 +38,7 @@ export class AnomalyMonitorService {
 
       national.sort((left, right) => Date.parse(right.timestamp) - Date.parse(left.timestamp));
       international.sort((left, right) => Date.parse(right.timestamp) - Date.parse(left.timestamp));
-      return { national: national.slice(0, 10), international: international.slice(0, 12), source: 'USGS', fetchedAt: new Date().toISOString() };
+      return { national, international, source: 'USGS', fetchedAt: new Date().toISOString() };
     } catch (error) {
       throw new Error(`Unable to retrieve live USGS data: ${error.message}`);
     }
