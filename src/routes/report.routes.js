@@ -5,7 +5,7 @@ const allowedMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'audi
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { files: 4, fileSize: 8 * 1024 * 1024 },
-  fileFilter: (_req, file, callback) => callback(null, allowedMimeTypes.has(file.mimetype))
+  fileFilter: (_req, file, callback) => callback(null, allowedMimeTypes.has(file.mimetype.split(';')[0].trim().toLowerCase()))
 });
 
 export function createReportRouter(controller) {

@@ -11,7 +11,7 @@ export class AudioTranscriptionService {
       model: process.env.GEMINI_AUDIO_MODEL || 'gemini-2.5-flash',
       contents: [{ role: 'user', parts: [
         { text: 'Transcribe fielmente en español el contenido hablado de este audio para un reporte territorial. Devuelve solo la transcripción. Si no hay voz inteligible, devuelve una cadena vacía.' },
-        { inlineData: { mimeType: file.mimetype, data: file.buffer.toString('base64') } }
+        { inlineData: { mimeType: file.mimetype.split(';')[0].trim().toLowerCase(), data: file.buffer.toString('base64') } }
       ] }]
     });
     return (response.text || '').trim();
