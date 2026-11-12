@@ -54,8 +54,12 @@ export class AuthController {
       const ticket = await this.googleClient.verifyIdToken({ idToken: req.body?.credential, audience: this.googleClientId });
       const profile = ticket.getPayload();
       if (!profile?.email_verified) return res.status(401).json({ error: 'Google account email is not verified.' });
-      const { rows } = await dbPool.query(`INSERT INTO app_users (email, display_name, google_subject) VALUES ($1, $2, $3) ON CONFLICT (google_subject) DO UPDATE SET email = EXCLUDED.email, display_name = EXCLUDED.display_name, updated_at = CURRENT_TIMESTAMP RETURNING id, email, display_name`, [profile.email.toLowerCase(), profile.name || profile.email, profile.sub]);
+      const { rows } = await dbPool.query(`INSERT INTO app_users (email, display_name, google_subject) VALUES ($1, $2, $3)
+        ON CONFLICT (LOWER(email)) DO UPDATE SET google_subject = EXCLUDED.google_subject, updated_at = CURRENT_TIMESTAMP
+        WHERE app_users.google_subject IS NULL OR app_users.google_subject = EXCLUDED.google_subject
+        RETURNING id, email, display_name`, [profile.email.toLowerCase(), profile.name || profile.email, profile.sub]);
+      if (!rows[0]) return res.status(409).json({ error: 'This email is already linked to another Google account.' });
       return res.json({ data: this.createSession(rows[0]) });
-    } catch { return res.status(401).json({ error: 'The Google credential could not be verified.' }); }
+    } catch (error) { console.error('[Auth] Google sign-in failed:', error); return res.status(401).json({ error: 'The Google credential could not be verified.' }); }
   };
 }

@@ -10,7 +10,7 @@ export class AnomalyMonitorService {
       if (!response.ok) throw new Error(`USGS returned HTTP ${response.status}`);
       const payload = await response.json();
       const national = [];
-      const nearby = [];
+      const international = [];
 
       for (const feature of payload.features || []) {
         const coordinates = feature.geometry?.coordinates;
@@ -19,7 +19,6 @@ export class AnomalyMonitorService {
 
         const [longitude, latitude, depth] = coordinates;
         const inColombia = latitude >= -4.23 && latitude <= 12.46 && longitude >= -79.0 && longitude <= -66.85;
-        const distanceToColombiaKm = Math.round(this.distanceInKm(latitude, longitude, 4.57, -74.30));
         const event = {
           id: feature.id,
           title: feature.properties.place || 'Ubicación no especificada',
@@ -28,27 +27,21 @@ export class AnomalyMonitorService {
           longitude,
           magnitude,
           severity: magnitude >= 5 ? 'HIGH' : magnitude >= 3 ? 'MEDIUM' : 'LOW',
-          category: inColombia ? 'Sismo en Colombia' : 'Sismo cercano a Colombia',
+          category: inColombia ? 'Sismo en Colombia' : 'Sismo internacional',
           source: 'USGS',
           sourceUrl: feature.properties.url,
           timestamp: new Date(feature.properties.time).toISOString()
         };
         if (inColombia) national.push(event);
-        else if (distanceToColombiaKm <= 900) nearby.push({ ...event, distanceToColombiaKm });
+        else international.push(event);
       }
 
-      nearby.sort((left, right) => left.distanceToColombiaKm - right.distanceToColombiaKm);
-      return { national, nearby: nearby.slice(0, 10), source: 'USGS', sourceUrl: 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php', fetchedAt: new Date().toISOString() };
+      national.sort((left, right) => Date.parse(right.timestamp) - Date.parse(left.timestamp));
+      international.sort((left, right) => Date.parse(right.timestamp) - Date.parse(left.timestamp));
+      return { national: national.slice(0, 10), international: international.slice(0, 12), source: 'USGS', fetchedAt: new Date().toISOString() };
     } catch (error) {
       throw new Error(`Unable to retrieve live USGS data: ${error.message}`);
     }
   }
 
-  distanceInKm(latitudeA, longitudeA, latitudeB, longitudeB) {
-    const radians = (value) => (value * Math.PI) / 180;
-    const deltaLatitude = radians(latitudeB - latitudeA);
-    const deltaLongitude = radians(longitudeB - longitudeA);
-    const a = Math.sin(deltaLatitude / 2) ** 2 + Math.cos(radians(latitudeA)) * Math.cos(radians(latitudeB)) * Math.sin(deltaLongitude / 2) ** 2;
-    return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  }
 }
