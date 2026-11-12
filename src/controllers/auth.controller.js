@@ -62,4 +62,11 @@ export class AuthController {
       return res.json({ data: this.createSession(rows[0]) });
     } catch (error) { console.error('[Auth] Google sign-in failed:', error); return res.status(401).json({ error: 'The Google credential could not be verified.' }); }
   };
+  currentUser = async (req, res) => {
+    try {
+      const { rows } = await dbPool.query('SELECT id, email, display_name, created_at FROM app_users WHERE id = $1', [req.userId]);
+      if (!rows[0]) return res.status(404).json({ error: 'Usuario no encontrado.' });
+      return res.json({ data: { id: rows[0].id, email: rows[0].email, name: rows[0].display_name, createdAt: rows[0].created_at } });
+    } catch { return res.status(500).json({ error: 'No se pudo consultar la sesión.' }); }
+  };
 }

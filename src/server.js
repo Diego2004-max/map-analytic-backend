@@ -11,6 +11,7 @@ import { createReportRouter } from './routes/report.routes.js';
 import { AnomalyMonitorService } from './services/anomaly-monitor.service.js';
 import { AudioTranscriptionService } from './services/audio-transcription.service.js';
 import { NLPClassificationService } from './services/nlp-classification.service.js';
+import { requireSession } from './middleware/session.js';
 dotenv.config();
 const app = express(); const port = Number(process.env.PORT || 5000);
 let databaseReady = false;
@@ -33,6 +34,7 @@ app.use('/api/v1', createReportRouter(reportController)); app.use('/api', create
 app.post('/api/v1/auth/google', authGuard, authController.verifyGoogleCredential);
 app.post('/api/v1/auth/register', authGuard, authController.register);
 app.post('/api/v1/auth/login', authGuard, authController.login);
+app.get('/api/v1/auth/me', requireSession, authController.currentUser);
 app.get('/api/health', async (_req, res) => {
   if (!databaseReady) return res.status(503).json({ status: 'database_unavailable' });
   const startedAt = performance.now();
