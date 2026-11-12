@@ -72,7 +72,8 @@ export class ReportController {
   deleteReport = async (req, res) => {
     if (!/^[1-9]\d*$/.test(req.params.reportId)) return res.status(400).json({ error: 'Identificador inválido.' });
     try {
-      const result = await dbPool.query('DELETE FROM anomaly_reports WHERE id = $1 AND owner_id = $2 RETURNING id', [req.params.reportId, req.userId]);
+      const result = await dbPool.query(`DELETE FROM anomaly_reports r USING app_users u
+        WHERE r.id = $1 AND u.id = $2 AND (r.owner_id = u.id OR u.role = 'ADMIN') RETURNING r.id`, [req.params.reportId, req.userId]);
       if (!result.rowCount) return res.status(404).json({ error: 'Reporte no disponible o no te pertenece.' });
       return res.status(204).end();
     } catch { return res.status(500).json({ error: 'No se pudo eliminar el reporte.' }); }

@@ -45,10 +45,12 @@ export async function initializeDatabase() {
       display_name VARCHAR(120) NOT NULL,
       password_hash TEXT,
       google_subject VARCHAR(255) UNIQUE,
+      role VARCHAR(20) NOT NULL DEFAULT 'ANALYST' CHECK (role IN ('ANALYST', 'ADMIN')),
       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     CREATE UNIQUE INDEX IF NOT EXISTS idx_app_users_email_lower ON app_users (LOWER(email));
+    ALTER TABLE app_users ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'ANALYST';
     ALTER TABLE anomaly_reports ADD COLUMN IF NOT EXISTS owner_id INTEGER REFERENCES app_users(id);
   `);
 }

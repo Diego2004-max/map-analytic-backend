@@ -15,7 +15,7 @@ export class AuthController {
   createSession(user) {
     if (!this.jwtSecret) throw new Error('JWT_SECRET is not configured');
     const token = jwt.sign({ sub: user.id, email: user.email }, this.jwtSecret, { expiresIn: '8h' });
-    return { token, user: { id: user.id, name: user.display_name, email: user.email } };
+    return { token, user: { id: user.id, name: user.display_name, email: user.email, role: user.role || 'ANALYST' } };
   }
 
   isSessionConfigured(res) {
@@ -64,9 +64,9 @@ export class AuthController {
   };
   currentUser = async (req, res) => {
     try {
-      const { rows } = await dbPool.query('SELECT id, email, display_name, created_at FROM app_users WHERE id = $1', [req.userId]);
+      const { rows } = await dbPool.query('SELECT id, email, display_name, role, created_at FROM app_users WHERE id = $1', [req.userId]);
       if (!rows[0]) return res.status(404).json({ error: 'Usuario no encontrado.' });
-      return res.json({ data: { id: rows[0].id, email: rows[0].email, name: rows[0].display_name, createdAt: rows[0].created_at } });
+      return res.json({ data: { id: rows[0].id, email: rows[0].email, name: rows[0].display_name, role: rows[0].role, createdAt: rows[0].created_at } });
     } catch { return res.status(500).json({ error: 'No se pudo consultar la sesión.' }); }
   };
 }
