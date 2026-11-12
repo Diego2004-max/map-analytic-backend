@@ -6,7 +6,10 @@ const { Pool } = pkg;
 
 export const dbPool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  connectionTimeoutMillis: 10_000,
+  query_timeout: 30_000,
+  statement_timeout: 30_000
 });
 
 export async function initializeDatabase() {

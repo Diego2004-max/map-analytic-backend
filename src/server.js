@@ -11,6 +11,8 @@ import { AudioTranscriptionService } from './services/audio-transcription.servic
 import { NLPClassificationService } from './services/nlp-classification.service.js';
 dotenv.config();
 const app = express(); const port = Number(process.env.PORT || 5000);
+let databaseReady = false;
+let databaseInitializing = false;
 app.use(cors(createCorsOptions(process.env.FRONTEND_ORIGIN))); app.use(express.json({ limit: '32kb' }));
 const reportController = new ReportController(new NLPClassificationService(), new AudioTranscriptionService());
 const authController = new AuthController({ googleClientId: process.env.GOOGLE_CLIENT_ID, jwtSecret: process.env.JWT_SECRET }); const monitorService = new AnomalyMonitorService();
@@ -18,7 +20,11 @@ app.use('/api/v1', createReportRouter(reportController)); app.use('/api', create
 app.post('/api/v1/auth/google', authController.verifyGoogleCredential);
 app.post('/api/v1/auth/register', authController.register);
 app.post('/api/v1/auth/login', authController.login);
-app.get('/api/health', async (_req, res, next) => { try { await dbPool.query('SELECT 1'); res.json({ status: 'ok', timestamp: new Date().toISOString() }); } catch (error) { next(error); } });
+app.get('/api/health', async (_req, res) => {
+  if (!databaseReady) return res.status(503).json({ status: 'database_unavailable' });
+  try { await dbPool.query('SELECT 1'); return res.json({ status: 'ok', timestamp: new Date().toISOString() }); }
+  catch (error) { databaseReady = false; console.error('[Database health]', error.message); return res.status(503).json({ status: 'database_unavailable' }); }
+});
 const scan = async (_req, res, next) => { try { res.json({ success: true, data: await monitorService.scanTerritorialAnomalies() }); } catch (error) { next(error); } };
 app.get('/api/v1/monitor/scan', scan); app.get('/api/monitor/scan', scan);
 app.use((error, _req, res, _next) => {
@@ -27,6 +33,16 @@ app.use((error, _req, res, _next) => {
   if (error.code === 'LIMIT_UNEXPECTED_FILE') return res.status(400).json({ error: 'Attachment field is not valid.' });
   console.error('[API]', error); return res.status(500).json({ error: 'Unexpected server error.' });
 });
-async function start() { await initializeDatabase(); app.listen(port, () => console.log(`[MapAnalytic Server] Running on port ${port}`)); }
-start().catch((error) => { console.error('[Startup]', error); process.exitCode = 1; });
+async function initializeWhenAvailable() {
+  if (databaseReady || databaseInitializing) return;
+  databaseInitializing = true;
+  try { await initializeDatabase(); databaseReady = true; console.log('[Database] Ready'); }
+  catch (error) { console.error('[Database] Initialization failed:', error.message); }
+  finally { databaseInitializing = false; }
+}
+app.listen(port, '0.0.0.0', () => {
+  console.log(`[MapAnalytic Server] Running on port ${port}`);
+  initializeWhenAvailable();
+  setInterval(initializeWhenAvailable, 30_000);
+});
 export default app;
