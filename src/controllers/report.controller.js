@@ -1,18 +1,28 @@
 import { dbPool } from '../config/database.js';
 
 export class ReportController {
-  constructor(nlpClassificationService) { this.nlpService = nlpClassificationService; }
+  constructor(nlpClassificationService, audioTranscriptionService) { this.nlpService = nlpClassificationService; this.audioService = audioTranscriptionService; }
   createReport = async (req, res) => {
     try {
       const { description, latitude, longitude, citizenId } = req.body;
       const lat = Number(latitude); const lng = Number(longitude);
-      if (typeof description !== 'string' || description.trim().length < 10) return res.status(400).json({ error: 'Description must contain at least 10 characters.' });
+      const audioFiles = (req.files || []).filter((file) => file.mimetype.startsWith('audio/'));
+      if (audioFiles.length > 1) return res.status(400).json({ error: 'Only one audio recording is allowed per report.' });
+      if ((typeof description !== 'string' || description.trim().length < 10) && !audioFiles.length) return res.status(400).json({ error: 'Provide a description of at least 10 characters or an audio recording.' });
       if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) return res.status(400).json({ error: 'Coordinates must be valid latitude and longitude values.' });
-      const classification = await this.nlpService.classifyReport(description.trim());
+      let transcript = '';
+      if (audioFiles.length) {
+        try { transcript = await this.audioService.transcribe(audioFiles[0]); }
+        catch (error) { console.error('[ReportController] Audio transcription failed:', error); return res.status(503).json({ error: 'Audio transcription is unavailable. Please retry later.' }); }
+        if (!transcript) return res.status(422).json({ error: 'No intelligible speech was found in the audio.' });
+      }
+      const reportDescription = [description?.trim(), transcript && `Transcripción del audio: ${transcript}`].filter(Boolean).join('\n\n');
+      if (reportDescription.length < 10) return res.status(422).json({ error: 'The report content is too short.' });
+      const classification = await this.nlpService.classifyReport(reportDescription);
       const client = await dbPool.connect();
       try {
         await client.query('BEGIN');
-        const { rows } = await client.query(`INSERT INTO anomaly_reports (description, latitude, longitude, citizen_id, category, severity, keywords, is_actionable, status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'PENDING') RETURNING id, description, category, severity, status, keywords, is_actionable, latitude, longitude, created_at;`, [description.trim(), lat, lng, citizenId || 'ANONYMOUS', classification.category, classification.severity, classification.extractedKeywords, classification.isActionable]);
+        const { rows } = await client.query(`INSERT INTO anomaly_reports (description, latitude, longitude, citizen_id, category, severity, keywords, is_actionable, status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'PENDING') RETURNING id, description, category, severity, status, keywords, is_actionable, latitude, longitude, created_at;`, [reportDescription, lat, lng, citizenId || 'ANONYMOUS', classification.category, classification.severity, classification.extractedKeywords, classification.isActionable]);
         const report = rows[0];
         const attachments = [];
         for (const file of req.files || []) {
