@@ -2,9 +2,12 @@
 export class AnomalyMonitorService {
   constructor() {
     this.sourceUrl = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson';
+    this.cacheTtlMs = 30_000;
+    this.cachedScan = null;
   }
 
   async scanTerritorialAnomalies() {
+    if (this.cachedScan && Date.now() - Date.parse(this.cachedScan.fetchedAt) < this.cacheTtlMs) return this.cachedScan;
     try {
       const response = await fetch(this.sourceUrl, { signal: AbortSignal.timeout(10_000) });
       if (!response.ok) throw new Error(`USGS returned HTTP ${response.status}`);
@@ -38,7 +41,8 @@ export class AnomalyMonitorService {
 
       national.sort((left, right) => Date.parse(right.timestamp) - Date.parse(left.timestamp));
       international.sort((left, right) => Date.parse(right.timestamp) - Date.parse(left.timestamp));
-      return { national, international, source: 'USGS', fetchedAt: new Date().toISOString() };
+      this.cachedScan = { national, international, source: 'USGS', fetchedAt: new Date().toISOString() };
+      return this.cachedScan;
     } catch (error) {
       throw new Error(`Unable to retrieve live USGS data: ${error.message}`);
     }
