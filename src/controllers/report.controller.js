@@ -60,7 +60,7 @@ export class ReportController {
     try {
       const { rows } = await dbPool.query('SELECT original_name, mime_type, content FROM report_attachments WHERE id = $1 AND report_id = $2', [req.params.attachmentId, req.params.reportId]);
       if (!rows[0]) return res.status(404).json({ error: 'Attachment not found.' });
-      res.type(rows[0].mime_type).set('Content-Disposition', `inline; filename="${rows[0].original_name.replace(/["\\]/g, '')}"`).send(rows[0].content);
+      res.type(rows[0].mime_type).set('Cache-Control', 'private, max-age=3600').set('X-Content-Type-Options', 'nosniff').set('Content-Disposition', `inline; filename="${rows[0].original_name.replace(/["\\]/g, '')}"`).send(rows[0].content);
     } catch (error) { console.error('[ReportController] Error retrieving attachment:', error); return res.status(500).json({ error: 'Failed to retrieve attachment.' }); }
   };
 }
