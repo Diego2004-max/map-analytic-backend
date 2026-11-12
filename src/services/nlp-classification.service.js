@@ -2,17 +2,17 @@
  * @file nlp-classification.service.js
  * @description Service to handle AI classification via Gemini API.
  */
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 export class NLPClassificationService {
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;
-    this.genAI = new GoogleGenerativeAI(apiKey);
+    this.genAI = apiKey ? new GoogleGenAI({ apiKey }) : null;
   }
 
   async classifyReport(description) {
     try {
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      if (!this.genAI) throw new Error('GEMINI_API_KEY is not configured');
       
       const prompt = `Analiza la siguiente descripción de una anomalía o fenómeno natural territorial (sismos, volcanes, clima, geología) y devuélvela estrictamente en formato JSON plano (sin bloques de código markdown) con las siguientes llaves exactas: 
       - category (String: ej. Sísmico, Volcánico, Climático, Geológico, Infraestructura)
@@ -22,11 +22,13 @@ export class NLPClassificationService {
 
       Descripción: "${description}"`;
 
-      const result = await model.generateContent(prompt);
-      const responseText = result.response.text().trim();
+      const result = await this.genAI.models.generateContent({ model: 'gemini-3.5-flash-lite', contents: prompt });
+      const responseText = result.text.trim();
       
       const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-      return JSON.parse(cleanJson);
+      const classification = JSON.parse(cleanJson);
+      if (!['LOW', 'MEDIUM', 'HIGH'].includes(classification.severity) || typeof classification.category !== 'string' || !Array.isArray(classification.extractedKeywords) || typeof classification.isActionable !== 'boolean') throw new Error('Invalid classification response');
+      return classification;
     } catch (error) {
       console.warn("[NLP Service] Aplicando clasificación inteligente para fenómenos naturales:", error.message);
       

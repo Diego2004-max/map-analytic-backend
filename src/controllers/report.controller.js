@@ -13,8 +13,8 @@ export class ReportController {
       let transcript = '';
       if (audioFiles.length) {
         try { transcript = await this.audioService.transcribe(audioFiles[0]); }
-        catch (error) { console.error('[ReportController] Audio transcription failed:', error); return res.status(503).json({ error: 'Audio transcription is unavailable. Please retry later.' }); }
-        if (!transcript) return res.status(422).json({ error: 'No intelligible speech was found in the audio.' });
+        catch (error) { console.error('[ReportController] Audio transcription failed:', error); return res.status(503).json({ error: 'No se pudo transcribir el audio. Inténtalo de nuevo en unos minutos.' }); }
+        if (!transcript) return res.status(422).json({ error: 'No se encontró voz comprensible en el audio.' });
       }
       const reportDescription = [description?.trim(), transcript && `Transcripción del audio: ${transcript}`].filter(Boolean).join('\n\n');
       if (reportDescription.length < 10) return res.status(422).json({ error: 'The report content is too short.' });

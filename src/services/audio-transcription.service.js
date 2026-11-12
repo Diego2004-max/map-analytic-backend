@@ -7,13 +7,18 @@ export class AudioTranscriptionService {
 
   async transcribe(file) {
     if (!this.client) throw new Error('Audio transcription is not configured.');
-    const response = await this.client.models.generateContent({
-      model: process.env.GEMINI_AUDIO_MODEL || 'gemini-2.5-flash',
-      contents: [{ role: 'user', parts: [
+    const contents = [{ role: 'user', parts: [
         { text: 'Transcribe fielmente en español el contenido hablado de este audio para un reporte territorial. Devuelve solo la transcripción. Si no hay voz inteligible, devuelve una cadena vacía.' },
         { inlineData: { mimeType: file.mimetype.split(';')[0].trim().toLowerCase(), data: file.buffer.toString('base64') } }
-      ] }]
-    });
-    return (response.text || '').trim();
+      ] }];
+    const preferredModel = process.env.GEMINI_AUDIO_MODEL || 'gemini-3.5-flash-lite';
+    try {
+      const response = await this.client.models.generateContent({ model: preferredModel, contents });
+      return (response.text || '').trim();
+    } catch (error) {
+      if (preferredModel === 'gemini-3.5-flash-lite' || ![404, 429, 503].includes(error.status)) throw error;
+      const response = await this.client.models.generateContent({ model: 'gemini-3.5-flash-lite', contents });
+      return (response.text || '').trim();
+    }
   }
 }
