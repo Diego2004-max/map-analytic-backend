@@ -4,6 +4,7 @@
   "description": "Backend for Map Analytic AI spatial reporting system",
   "main": "src/server.js",
   "type": "module",
+  "engines": { "node": ">=20 <25" },
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
