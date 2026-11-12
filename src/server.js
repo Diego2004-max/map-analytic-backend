@@ -22,7 +22,8 @@ app.post('/api/v1/auth/register', authController.register);
 app.post('/api/v1/auth/login', authController.login);
 app.get('/api/health', async (_req, res) => {
   if (!databaseReady) return res.status(503).json({ status: 'database_unavailable' });
-  try { await dbPool.query('SELECT 1'); return res.json({ status: 'ok', timestamp: new Date().toISOString() }); }
+  const startedAt = performance.now();
+  try { await dbPool.query('SELECT 1'); return res.json({ status: 'ok', database: 'ready', latencyMs: Math.round(performance.now() - startedAt), timestamp: new Date().toISOString() }); }
   catch (error) { databaseReady = false; console.error('[Database health]', error.message); return res.status(503).json({ status: 'database_unavailable' }); }
 });
 const scan = async (_req, res, next) => { try { res.json({ success: true, data: await monitorService.scanTerritorialAnomalies() }); } catch (error) { next(error); } };
