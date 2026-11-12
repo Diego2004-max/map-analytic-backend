@@ -43,11 +43,11 @@ app.get('/api/health', async (_req, res) => {
 });
 const scan = async (_req, res, next) => { try { res.json({ success: true, data: await monitorService.scanTerritorialAnomalies() }); } catch (error) { next(error); } };
 app.get('/api/v1/monitor/scan', scan); app.get('/api/monitor/scan', scan);
-app.use((error, _req, res, _next) => {
+app.use((error, req, res, _next) => {
   if (error.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'Each attachment must be 8 MB or smaller.' });
   if (error.code === 'LIMIT_FILE_COUNT') return res.status(400).json({ error: 'A report can include up to four attachments.' });
   if (error.code === 'LIMIT_UNEXPECTED_FILE') return res.status(400).json({ error: 'Attachment field is not valid.' });
-  console.error('[API]', error); return res.status(500).json({ error: 'Unexpected server error.' });
+  const requestId = res.get('x-request-id'); console.error('[API]', { requestId, method: req.method, path: req.path, message: error.message }); return res.status(500).json({ error: 'Unexpected server error.', requestId });
 });
 async function initializeWhenAvailable() {
   if (databaseReady || databaseInitializing) return;
