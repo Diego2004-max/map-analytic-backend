@@ -36,10 +36,11 @@ app.post('/api/v1/auth/register', authGuard, authController.register);
 app.post('/api/v1/auth/login', authGuard, authController.login);
 app.get('/api/v1/auth/me', requireSession, authController.currentUser);
 app.get('/api/health', async (_req, res) => {
-  if (!databaseReady) return res.status(503).json({ status: 'database_unavailable' });
+  const requestId = res.get('x-request-id');
+  if (!databaseReady) return res.status(503).json({ status: 'database_unavailable', requestId });
   const startedAt = performance.now();
   try { await dbPool.query('SELECT 1'); return res.json({ status: 'ok', database: 'ready', latencyMs: Math.round(performance.now() - startedAt), uptimeSeconds: Math.floor(process.uptime()), retention: retention.lastRun, timestamp: new Date().toISOString() }); }
-  catch (error) { databaseReady = false; console.error('[Database health]', error.message); return res.status(503).json({ status: 'database_unavailable' }); }
+  catch (error) { databaseReady = false; console.error('[Database health]', { requestId, message: error.message }); return res.status(503).json({ status: 'database_unavailable', requestId }); }
 });
 const scan = async (_req, res, next) => { try { res.json({ success: true, data: await monitorService.scanTerritorialAnomalies() }); } catch (error) { next(error); } };
 app.get('/api/v1/monitor/scan', scan); app.get('/api/monitor/scan', scan);
