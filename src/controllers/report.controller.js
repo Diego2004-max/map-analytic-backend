@@ -1,6 +1,7 @@
 import { dbPool } from '../config/database.js';
 import { providerStatus } from '../services/audio-transcription.service.js';
 import { parsePagination } from '../utils/pagination.js';
+import { areValidCoordinates } from '../utils/coordinates.js';
 
 export class ReportController {
   constructor(nlpClassificationService, audioTranscriptionService) { this.nlpService = nlpClassificationService; this.audioService = audioTranscriptionService; }
@@ -11,7 +12,7 @@ export class ReportController {
       const audioFiles = (req.files || []).filter((file) => file.mimetype.startsWith('audio/'));
       if (audioFiles.length > 1) return res.status(400).json({ error: 'Only one audio recording is allowed per report.' });
       if ((typeof description !== 'string' || description.trim().length < 10) && !audioFiles.length) return res.status(400).json({ error: 'Provide a description of at least 10 characters or an audio recording.' });
-      if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) return res.status(400).json({ error: 'Coordinates must be valid latitude and longitude values.' });
+      if (!areValidCoordinates(lat, lng)) return res.status(400).json({ error: 'Coordinates must be valid latitude and longitude values.' });
       let transcript = '';
       if (audioFiles.length) {
         try { transcript = await this.audioService.transcribe(audioFiles[0]); }
