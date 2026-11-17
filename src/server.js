@@ -26,6 +26,10 @@ const authGuard = (req, res, next) => {
   if (entry.count > 20) return res.status(429).json({ error: 'Too many authentication attempts. Try again later.' });
   next();
 };
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of authAttempts) if (entry.resetAt <= now) authAttempts.delete(ip);
+}, 60_000).unref();
 app.use((req, res, next) => { const requestId = req.get('x-request-id') || crypto.randomUUID(); res.set('x-request-id', requestId); res.set('x-content-type-options', 'nosniff'); res.set('x-frame-options', 'DENY'); next(); });
 app.use(cors(createCorsOptions(process.env.FRONTEND_ORIGIN))); app.use(express.json({ limit: '32kb' }));
 const reportController = new ReportController(new NLPClassificationService(), new AudioTranscriptionService());
