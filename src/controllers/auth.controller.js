@@ -3,6 +3,7 @@ import { OAuth2Client } from 'google-auth-library';
 import jwt from 'jsonwebtoken';
 import { dbPool } from '../config/database.js';
 import { normalizeEmail } from '../utils/email.js';
+import { isValidPassword } from '../utils/password.js';
 
 
 export class AuthController {
@@ -28,7 +29,7 @@ export class AuthController {
     if (!this.isSessionConfigured(res)) return;
     const { name, email, password } = req.body ?? {};
     const normalizedEmail = normalizeEmail(email);
-    if (typeof name !== 'string' || name.trim().length < 2 || !normalizedEmail || typeof password !== 'string' || password.length < 10) return res.status(400).json({ error: 'Name, valid email, and a password of at least 10 characters are required.' });
+    if (typeof name !== 'string' || name.trim().length < 2 || !normalizedEmail || !isValidPassword(password)) return res.status(400).json({ error: 'Name, valid email, and a password of at least 10 non-space characters are required.' });
     try {
       const passwordHash = await bcrypt.hash(password, 12);
       const { rows } = await dbPool.query('INSERT INTO app_users (email, display_name, password_hash) VALUES ($1, $2, $3) RETURNING id, email, display_name', [normalizedEmail, name.trim(), passwordHash]);
