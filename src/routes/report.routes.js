@@ -6,7 +6,15 @@ const allowedMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'audi
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { files: 4, fileSize: 8 * 1024 * 1024 },
-  fileFilter: (_req, file, callback) => callback(null, allowedMimeTypes.has(file.mimetype.split(';')[0].trim().toLowerCase()))
+  fileFilter: (_req, file, callback) => {
+    const mimeType = file.mimetype.split(';')[0].trim().toLowerCase();
+    if (!allowedMimeTypes.has(mimeType)) {
+      const error = new Error('Unsupported attachment type.');
+      error.code = 'INVALID_FILE_TYPE';
+      return callback(error);
+    }
+    callback(null, true);
+  }
 });
 
 export function createReportRouter(controller) {
